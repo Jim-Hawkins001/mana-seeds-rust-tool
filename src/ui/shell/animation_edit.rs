@@ -1141,6 +1141,1220 @@ pub(super) fn sync_left_panel_sections(
     }
 }
 
+pub(super) fn sync_mode_section_defaults(
+    mode: Res<EditorMode>,
+    mut left_sections: ResMut<LeftPanelSectionsState>,
+    mut right_sections: ResMut<RightPanelSectionsState>,
+) {
+    if !mode.is_changed() {
+        return;
+    }
+
+    match *mode {
+        EditorMode::Animations => {
+            left_sections.sprite_sheet_open = true;
+            left_sections.grid_settings_open = false;
+            left_sections.parts_open = false;
+            left_sections.palettes_open = false;
+            left_sections.animations_open = true;
+            right_sections.playback_open = true;
+            right_sections.outfits_open = false;
+        }
+        EditorMode::Parts => {
+            left_sections.sprite_sheet_open = true;
+            left_sections.grid_settings_open = false;
+            left_sections.parts_open = true;
+            left_sections.palettes_open = true;
+            left_sections.animations_open = false;
+            right_sections.playback_open = true;
+            right_sections.outfits_open = false;
+        }
+        EditorMode::Outfits => {
+            left_sections.sprite_sheet_open = false;
+            left_sections.grid_settings_open = false;
+            left_sections.parts_open = true;
+            left_sections.palettes_open = true;
+            left_sections.animations_open = false;
+            right_sections.playback_open = false;
+            right_sections.outfits_open = true;
+        }
+    }
+}
+
+pub(super) fn handle_right_panel_playback_section_toggle(
+    mut toggles: Query<
+        &Interaction,
+        (
+            Changed<Interaction>,
+            With<RightPanelPlaybackSectionToggleButton>,
+        ),
+    >,
+    mut sections: ResMut<RightPanelSectionsState>,
+) {
+    for interaction in &mut toggles {
+        if *interaction == Interaction::Pressed {
+            sections.playback_open = !sections.playback_open;
+        }
+    }
+}
+
+pub(super) fn sync_right_panel_playback_section(
+    sections: Res<RightPanelSectionsState>,
+    mut bodies: Query<&mut Node, With<RightPanelPlaybackSectionBody>>,
+    mut icons: Query<&mut Text, With<RightPanelPlaybackSectionToggleText>>,
+) {
+    if !sections.is_changed() {
+        return;
+    }
+
+    let display = if sections.playback_open {
+        Display::Flex
+    } else {
+        Display::None
+    };
+    for mut node in &mut bodies {
+        node.display = display;
+    }
+
+    let arrow = if sections.playback_open { "v" } else { ">" };
+    for mut text in &mut icons {
+        *text = Text::new(arrow);
+    }
+}
+
+pub(super) fn handle_right_panel_outfit_section_toggle(
+    mut toggles: Query<
+        &Interaction,
+        (
+            Changed<Interaction>,
+            With<RightPanelOutfitSectionToggleButton>,
+        ),
+    >,
+    mut sections: ResMut<RightPanelSectionsState>,
+) {
+    for interaction in &mut toggles {
+        if *interaction == Interaction::Pressed {
+            sections.outfits_open = !sections.outfits_open;
+        }
+    }
+}
+
+pub(super) fn sync_right_panel_outfit_section(
+    sections: Res<RightPanelSectionsState>,
+    mut bodies: Query<&mut Node, With<RightPanelOutfitSectionBody>>,
+    mut icons: Query<&mut Text, With<RightPanelOutfitSectionToggleText>>,
+) {
+    if !sections.is_changed() {
+        return;
+    }
+
+    let display = if sections.outfits_open {
+        Display::Flex
+    } else {
+        Display::None
+    };
+    for mut node in &mut bodies {
+        node.display = display;
+    }
+
+    let arrow = if sections.outfits_open { "v" } else { ">" };
+    for mut text in &mut icons {
+        *text = Text::new(arrow);
+    }
+}
+
+pub(super) fn handle_outfit_action_buttons(
+    mut add_buttons: Query<&Interaction, (Changed<Interaction>, With<AddOutfitButton>)>,
+    mut delete_buttons: Query<&Interaction, (Changed<Interaction>, With<DeleteOutfitButton>)>,
+    mut save_buttons: Query<&Interaction, (Changed<Interaction>, With<SaveOutfitChangesButton>)>,
+    mut add_tag_buttons: Query<&Interaction, (Changed<Interaction>, With<AddOutfitTagButton>)>,
+    mut outfits: ResMut<OutfitDbState>,
+    mut drafts: ResMut<OutfitFieldDrafts>,
+    mut paper_doll: ResMut<PaperDollState>,
+    mut palette_panel: ResMut<PalettePanelState>,
+    mut layer_palettes: ResMut<LayerPaletteState>,
+    mut loaded: ResMut<LoadedImage>,
+) {
+    for interaction in &mut add_buttons {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+
+        let new_id = next_outfit_id(&outfits);
+        let display_name = new_id.replace('_', " ");
+        let outfit = snapshot_outfit_from_preview(
+            &paper_doll,
+            &palette_panel,
+            &layer_palettes,
+            new_id.clone(),
+            display_name,
+            Vec::new(),
+        );
+        outfits.db.outfits.push(outfit.clone());
+        outfits.selected = Some(outfits.db.outfits.len() - 1);
+        outfits.dirty = true;
+        drafts.set_from_outfit(&outfit);
+        loaded.status = Some(format!("Added outfit: {}", outfit.outfit_id));
+    }
+
+    for interaction in &mut delete_buttons {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+        let Some(selected) = outfits.selected else {
+            loaded.status = Some("Outfits: no selected outfit to delete".to_string());
+            continue;
+        };
+        if selected >= outfits.db.outfits.len() {
+            outfits.selected = None;
+            drafts.clear_for_none_selected();
+            continue;
+        }
+        let deleted = outfits.db.outfits.remove(selected);
+        outfits.selected = if outfits.db.outfits.is_empty() {
+            None
+        } else {
+            Some(selected.min(outfits.db.outfits.len() - 1))
+        };
+        if let Some(new_selected) = outfits.selected {
+            if let Some(outfit) = outfits.db.outfits.get(new_selected) {
+                drafts.set_from_outfit(outfit);
+                apply_outfit_to_preview(
+                    outfit,
+                    &mut paper_doll,
+                    &mut palette_panel,
+                    &mut layer_palettes,
+                );
+            }
+        } else {
+            drafts.clear_for_none_selected();
+        }
+        outfits.dirty = true;
+        loaded.status = Some(format!("Deleted outfit: {}", deleted.outfit_id));
+    }
+
+    for interaction in &mut add_tag_buttons {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+        let Some(selected) = outfits.selected else {
+            loaded.status = Some("Outfits: select an outfit before adding tags".to_string());
+            continue;
+        };
+        let Some(outfit) = outfits.db.outfits.get_mut(selected) else {
+            continue;
+        };
+        let tag = normalize_tag(&drafts.tag_input);
+        if tag.is_empty() {
+            loaded.status = Some("Outfits: tag input is empty".to_string());
+            continue;
+        }
+        if !outfit.tags.iter().any(|existing| existing == &tag) {
+            outfit.tags.push(tag.clone());
+            outfits.dirty = true;
+            loaded.status = Some(format!("Outfits: added tag '{tag}'"));
+        }
+        drafts.tag_input.clear();
+        drafts.active = None;
+    }
+
+    for interaction in &mut save_buttons {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+        let Some(selected) = outfits.selected else {
+            loaded.status = Some("Outfits: no selected outfit to save".to_string());
+            continue;
+        };
+        let Some(current) = outfits.db.outfits.get(selected).cloned() else {
+            continue;
+        };
+        let outfit_id = sanitize_outfit_id(&drafts.outfit_id);
+        if outfit_id.is_empty() {
+            drafts.invalid_outfit_id = true;
+            loaded.status = Some("Outfit ID must contain letters/digits/underscores".to_string());
+            continue;
+        }
+        if outfits
+            .db
+            .outfits
+            .iter()
+            .enumerate()
+            .any(|(index, outfit)| index != selected && outfit.outfit_id == outfit_id)
+        {
+            drafts.invalid_outfit_id = true;
+            loaded.status = Some("Outfit ID must be unique".to_string());
+            continue;
+        }
+        drafts.invalid_outfit_id = false;
+
+        let display_name = if drafts.display_name.trim().is_empty() {
+            current.display_name
+        } else {
+            drafts.display_name.trim().to_string()
+        };
+        let snapshot = snapshot_outfit_from_preview(
+            &paper_doll,
+            &palette_panel,
+            &layer_palettes,
+            outfit_id.clone(),
+            display_name,
+            current.tags,
+        );
+        if let Some(slot) = outfits.db.outfits.get_mut(selected) {
+            *slot = snapshot;
+        }
+        drafts.outfit_id = outfit_id;
+        outfits.dirty = true;
+
+        match outfits.save() {
+            Ok(()) => {
+                loaded.status = Some(format!("Saved outfits db: {}", outfits.path.display()));
+            }
+            Err(err) => {
+                loaded.status = Some(err);
+            }
+        }
+    }
+}
+
+pub(super) fn handle_outfit_list_clicks(
+    mut list_buttons: Query<
+        (&Interaction, &OutfitListItemButton),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut outfits: ResMut<OutfitDbState>,
+    mut drafts: ResMut<OutfitFieldDrafts>,
+    mut paper_doll: ResMut<PaperDollState>,
+    mut palette_panel: ResMut<PalettePanelState>,
+    mut layer_palettes: ResMut<LayerPaletteState>,
+    mut loaded: ResMut<LoadedImage>,
+) {
+    for (interaction, item) in &mut list_buttons {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+        let Some(outfit) = outfits.db.outfits.get(item.index).cloned() else {
+            continue;
+        };
+        outfits.selected = Some(item.index);
+        drafts.set_from_outfit(&outfit);
+        apply_outfit_to_preview(
+            &outfit,
+            &mut paper_doll,
+            &mut palette_panel,
+            &mut layer_palettes,
+        );
+        loaded.status = Some(format!("Loaded outfit: {}", outfit.outfit_id));
+    }
+}
+
+pub(super) fn handle_outfit_tag_remove_buttons(
+    mut remove_buttons: Query<
+        (&Interaction, &OutfitRemoveTagButton),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut outfits: ResMut<OutfitDbState>,
+    mut loaded: ResMut<LoadedImage>,
+) {
+    for (interaction, remove) in &mut remove_buttons {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+        let Some(selected) = outfits.selected else {
+            continue;
+        };
+        let Some(outfit) = outfits.db.outfits.get_mut(selected) else {
+            continue;
+        };
+        if remove.tag_index >= outfit.tags.len() {
+            continue;
+        }
+        let removed = outfit.tags.remove(remove.tag_index);
+        outfits.dirty = true;
+        loaded.status = Some(format!("Outfits: removed tag '{removed}'"));
+        break;
+    }
+}
+
+pub(super) fn handle_outfit_field_focus(
+    mut fields: Query<(&Interaction, &OutfitFieldButton), (Changed<Interaction>, With<Button>)>,
+    mut drafts: ResMut<OutfitFieldDrafts>,
+) {
+    for (interaction, field) in &mut fields {
+        if *interaction == Interaction::Pressed {
+            drafts.active = Some(field.field);
+        }
+    }
+}
+
+pub(super) fn handle_outfit_field_keyboard_input(
+    mut keyboard_events: MessageReader<KeyboardInput>,
+    mut drafts: ResMut<OutfitFieldDrafts>,
+    mut outfits: ResMut<OutfitDbState>,
+    mut loaded: ResMut<LoadedImage>,
+) {
+    let Some(active) = drafts.active else {
+        return;
+    };
+
+    for event in keyboard_events.read() {
+        if event.state != ButtonState::Pressed {
+            continue;
+        }
+        match &event.logical_key {
+            Key::Character(ch) => {
+                let filtered = filter_outfit_input(active, ch);
+                if filtered.is_empty() {
+                    continue;
+                }
+                drafts.value_mut(active).push_str(&filtered);
+                if active == OutfitFieldKind::OutfitId {
+                    drafts.invalid_outfit_id = false;
+                }
+            }
+            Key::Backspace => {
+                drafts.value_mut(active).pop();
+                if active == OutfitFieldKind::OutfitId {
+                    drafts.invalid_outfit_id = false;
+                }
+            }
+            Key::Enter => {
+                commit_outfit_field(active, &mut drafts, &mut outfits, &mut loaded);
+                drafts.active = None;
+            }
+            _ => {}
+        }
+    }
+}
+
+pub(super) fn commit_outfit_field_on_blur(
+    mouse: Res<ButtonInput<MouseButton>>,
+    field_hover: Query<&Interaction, With<OutfitFieldButton>>,
+    mut drafts: ResMut<OutfitFieldDrafts>,
+    mut outfits: ResMut<OutfitDbState>,
+    mut loaded: ResMut<LoadedImage>,
+) {
+    let Some(active) = drafts.active else {
+        return;
+    };
+    if !mouse.just_pressed(MouseButton::Left) {
+        return;
+    }
+
+    let hovered_field = field_hover.iter().any(|interaction| {
+        *interaction == Interaction::Hovered || *interaction == Interaction::Pressed
+    });
+    if hovered_field {
+        return;
+    }
+
+    commit_outfit_field(active, &mut drafts, &mut outfits, &mut loaded);
+    drafts.active = None;
+}
+
+pub(super) fn handle_outfit_filter_field_focus(
+    mut fields: Query<&Interaction, (Changed<Interaction>, With<OutfitFilterFieldButton>)>,
+    mut filter: ResMut<OutfitListFilterState>,
+) {
+    for interaction in &mut fields {
+        if *interaction == Interaction::Pressed {
+            filter.field_active = true;
+        }
+    }
+}
+
+pub(super) fn handle_outfit_filter_keyboard_input(
+    mut keyboard_events: MessageReader<KeyboardInput>,
+    mut filter: ResMut<OutfitListFilterState>,
+) {
+    if !filter.field_active {
+        return;
+    }
+
+    for event in keyboard_events.read() {
+        if event.state != ButtonState::Pressed {
+            continue;
+        }
+        match &event.logical_key {
+            Key::Character(ch) => {
+                let filtered: String = ch
+                    .chars()
+                    .filter(|c| {
+                        c.is_ascii_alphanumeric() || matches!(*c, '_' | '-' | ':' | '/' | ' ')
+                    })
+                    .map(|c| c.to_ascii_lowercase())
+                    .collect();
+                if filtered.is_empty() {
+                    continue;
+                }
+                filter.query.push_str(&filtered);
+            }
+            Key::Backspace => {
+                filter.query.pop();
+            }
+            Key::Enter => {
+                add_filter_tag_from_query(&mut filter);
+                filter.field_active = false;
+            }
+            _ => {}
+        }
+    }
+}
+
+pub(super) fn commit_outfit_filter_on_blur(
+    mouse: Res<ButtonInput<MouseButton>>,
+    field_hover: Query<&Interaction, With<OutfitFilterFieldButton>>,
+    mut filter: ResMut<OutfitListFilterState>,
+) {
+    if !filter.field_active || !mouse.just_pressed(MouseButton::Left) {
+        return;
+    }
+
+    let hovered = field_hover.iter().any(|interaction| {
+        *interaction == Interaction::Hovered || *interaction == Interaction::Pressed
+    });
+    if hovered {
+        return;
+    }
+    filter.field_active = false;
+}
+
+pub(super) fn handle_outfit_filter_buttons(
+    mut add_buttons: Query<&Interaction, (Changed<Interaction>, With<AddOutfitFilterTagButton>)>,
+    mut clear_buttons: Query<&Interaction, (Changed<Interaction>, With<ClearOutfitFiltersButton>)>,
+    mut filter: ResMut<OutfitListFilterState>,
+) {
+    for interaction in &mut add_buttons {
+        if *interaction == Interaction::Pressed {
+            add_filter_tag_from_query(&mut filter);
+            filter.field_active = false;
+        }
+    }
+
+    for interaction in &mut clear_buttons {
+        if *interaction == Interaction::Pressed {
+            filter.query.clear();
+            filter.active_tags.clear();
+            filter.field_active = false;
+        }
+    }
+}
+
+pub(super) fn handle_outfit_filter_tag_remove_buttons(
+    mut remove_buttons: Query<
+        (&Interaction, &OutfitRemoveFilterTagButton),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut filter: ResMut<OutfitListFilterState>,
+) {
+    for (interaction, remove) in &mut remove_buttons {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+        if remove.tag_index >= filter.active_tags.len() {
+            continue;
+        }
+        filter.active_tags.remove(remove.tag_index);
+        break;
+    }
+}
+
+pub(super) fn handle_outfit_autocomplete_clicks(
+    mut buttons: Query<
+        (&Interaction, &OutfitAutocompleteSuggestionButton),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut filter: ResMut<OutfitListFilterState>,
+) {
+    for (interaction, suggestion) in &mut buttons {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+        if !filter.active_tags.iter().any(|tag| tag == &suggestion.tag) {
+            filter.active_tags.push(suggestion.tag.clone());
+        }
+        filter.query.clear();
+        filter.field_active = false;
+        break;
+    }
+}
+
+pub(super) fn sync_outfit_panel_widgets(
+    mut commands: Commands,
+    outfits: Res<OutfitDbState>,
+    drafts: Res<OutfitFieldDrafts>,
+    filter: Res<OutfitListFilterState>,
+    paper_doll: Res<PaperDollState>,
+    palette_panel: Res<PalettePanelState>,
+    layer_palettes: Res<LayerPaletteState>,
+    mut containers: ParamSet<(
+        Single<Entity, With<OutfitListContainer>>,
+        Single<Entity, With<OutfitTagChipsContainer>>,
+        Single<Entity, With<OutfitFilterChipsContainer>>,
+        Single<Entity, With<OutfitFilterAutocompleteContainer>>,
+    )>,
+    children_query: Query<&Children>,
+    mut text_queries: ParamSet<(
+        Query<&mut Text, With<OutfitIdentityText>>,
+        Query<&mut Text, With<OutfitSummaryText>>,
+        Query<&mut Text, With<OutfitStatusText>>,
+        Query<(&OutfitFieldText, &mut Text)>,
+        Query<(&OutfitFieldButton, &mut BorderColor)>,
+        Query<&mut Text, With<OutfitFilterFieldText>>,
+        Query<&mut BorderColor, With<OutfitFilterFieldButton>>,
+    )>,
+) {
+    if !outfits.is_changed()
+        && !drafts.is_changed()
+        && !filter.is_changed()
+        && !paper_doll.is_changed()
+        && !palette_panel.is_changed()
+        && !layer_palettes.is_changed()
+    {
+        return;
+    }
+
+    let list_container = *containers.p0();
+    let tags_container = *containers.p1();
+    let filter_tags_container = *containers.p2();
+    let autocomplete_container = *containers.p3();
+
+    for (field_text, mut text) in &mut text_queries.p3() {
+        *text = Text::new(drafts.value(field_text.field));
+    }
+    for (field_button, mut border) in &mut text_queries.p4() {
+        let color = if field_button.field == OutfitFieldKind::OutfitId && drafts.invalid_outfit_id {
+            Color::srgb(0.82, 0.18, 0.18)
+        } else if drafts.active == Some(field_button.field) {
+            Color::srgb(0.34, 0.56, 0.98)
+        } else {
+            Color::srgba(1.0, 1.0, 1.0, 0.22)
+        };
+        *border = BorderColor::all(color);
+    }
+    for mut text in &mut text_queries.p5() {
+        *text = Text::new(filter.query.clone());
+    }
+    for mut border in &mut text_queries.p6() {
+        let color = if filter.field_active {
+            Color::srgb(0.34, 0.56, 0.98)
+        } else {
+            Color::srgba(1.0, 1.0, 1.0, 0.22)
+        };
+        *border = BorderColor::all(color);
+    }
+
+    let selected_outfit = outfits
+        .selected
+        .and_then(|index| outfits.db.outfits.get(index));
+    for mut text in &mut text_queries.p0() {
+        let label = selected_outfit.map_or_else(
+            || "Selected: (none)".to_string(),
+            |outfit| format!("Selected: {}", outfit.outfit_id),
+        );
+        *text = Text::new(label);
+    }
+
+    for mut text in &mut text_queries.p2() {
+        *text = Text::new(format!(
+            "Outfits: {} | Visible: {} | Dirty: {} | File: {}",
+            outfits.db.outfits.len(),
+            filtered_outfit_count(outfits.as_ref(), filter.as_ref()),
+            if outfits.dirty { "yes" } else { "no" },
+            outfits.path.display()
+        ));
+    }
+
+    let summary = build_preview_summary(&paper_doll, &palette_panel, &layer_palettes);
+    for mut text in &mut text_queries.p1() {
+        *text = Text::new(summary.clone());
+    }
+
+    despawn_children_of(&mut commands, list_container, &children_query);
+    commands.entity(list_container).with_children(|list| {
+        let visible_indices = filtered_outfit_indices(outfits.as_ref(), filter.as_ref());
+        if visible_indices.is_empty() {
+            list.spawn((Text::new("(no outfits)"), TextFont::from_font_size(10.0)));
+            return;
+        }
+        for index in visible_indices {
+            let Some(outfit) = outfits.db.outfits.get(index) else {
+                continue;
+            };
+            let selected = outfits.selected == Some(index);
+            let label = if outfit.display_name.trim().is_empty() {
+                outfit.outfit_id.clone()
+            } else {
+                outfit.display_name.clone()
+            };
+            let tag_line = if outfit.tags.is_empty() {
+                String::new()
+            } else {
+                outfit
+                    .tags
+                    .iter()
+                    .map(|tag| format!("[{tag}]"))
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            };
+            list.spawn((
+                Button,
+                Node {
+                    width: percent(100),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: px(2),
+                    padding: UiRect::all(px(6)),
+                    border: UiRect::all(px(1)),
+                    ..default()
+                },
+                BackgroundColor(if selected {
+                    Color::srgb(0.20, 0.20, 0.14)
+                } else {
+                    Color::srgb(0.12, 0.12, 0.15)
+                }),
+                BorderColor::all(if selected {
+                    Color::srgb(0.95, 0.82, 0.22)
+                } else {
+                    Color::srgba(1.0, 1.0, 1.0, 0.20)
+                }),
+                OutfitListItemButton { index },
+            ))
+            .with_children(|item| {
+                item.spawn((Text::new(label),));
+                if !tag_line.is_empty() {
+                    item.spawn((Text::new(tag_line), TextFont::from_font_size(10.0)));
+                }
+            });
+        }
+    });
+
+    despawn_children_of(&mut commands, filter_tags_container, &children_query);
+    commands
+        .entity(filter_tags_container)
+        .with_children(|chips| {
+            if filter.active_tags.is_empty() {
+                chips.spawn((
+                    Text::new("(no filter tags)"),
+                    TextFont::from_font_size(10.0),
+                ));
+                return;
+            }
+            for (tag_index, tag) in filter.active_tags.iter().enumerate() {
+                chips
+                    .spawn((
+                        Button,
+                        Node {
+                            padding: UiRect::axes(px(6), px(4)),
+                            border: UiRect::all(px(1)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.12, 0.18, 0.16)),
+                        BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.20)),
+                        OutfitRemoveFilterTagButton { tag_index },
+                    ))
+                    .with_children(|chip| {
+                        chip.spawn((
+                            Text::new(format!("{tag}  x")),
+                            TextFont::from_font_size(10.0),
+                        ));
+                    });
+            }
+        });
+
+    despawn_children_of(&mut commands, autocomplete_container, &children_query);
+    commands
+        .entity(autocomplete_container)
+        .with_children(|suggestions| {
+            let tags = autocomplete_tags(outfits.as_ref(), filter.as_ref());
+            if tags.is_empty() {
+                suggestions.spawn((
+                    Text::new("(no suggestions)"),
+                    TextFont::from_font_size(10.0),
+                ));
+                return;
+            }
+            for tag in tags {
+                suggestions
+                    .spawn((
+                        Button,
+                        Node {
+                            padding: UiRect::axes(px(6), px(4)),
+                            border: UiRect::all(px(1)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(0.14, 0.14, 0.18)),
+                        BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.20)),
+                        OutfitAutocompleteSuggestionButton { tag: tag.clone() },
+                    ))
+                    .with_children(|chip| {
+                        chip.spawn((
+                            Text::new(format!("+ {tag}")),
+                            TextFont::from_font_size(10.0),
+                        ));
+                    });
+            }
+        });
+
+    despawn_children_of(&mut commands, tags_container, &children_query);
+    commands.entity(tags_container).with_children(|chips| {
+        let Some(outfit) = selected_outfit else {
+            chips.spawn((Text::new("(no tags)"), TextFont::from_font_size(10.0)));
+            return;
+        };
+        if outfit.tags.is_empty() {
+            chips.spawn((Text::new("(no tags)"), TextFont::from_font_size(10.0)));
+            return;
+        }
+        for (tag_index, tag) in outfit.tags.iter().enumerate() {
+            chips
+                .spawn((
+                    Button,
+                    Node {
+                        padding: UiRect::axes(px(6), px(4)),
+                        border: UiRect::all(px(1)),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.14, 0.14, 0.18)),
+                    BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.20)),
+                    OutfitRemoveTagButton { tag_index },
+                ))
+                .with_children(|chip| {
+                    chip.spawn((
+                        Text::new(format!("{tag}  x")),
+                        TextFont::from_font_size(10.0),
+                    ));
+                });
+        }
+    });
+}
+
+pub(super) fn commit_outfit_field(
+    field: OutfitFieldKind,
+    drafts: &mut OutfitFieldDrafts,
+    outfits: &mut OutfitDbState,
+    loaded: &mut LoadedImage,
+) {
+    let Some(selected) = outfits.selected else {
+        loaded.status = Some("Outfits: select an outfit first".to_string());
+        return;
+    };
+    let Some(outfit) = outfits.db.outfits.get(selected) else {
+        return;
+    };
+
+    match field {
+        OutfitFieldKind::OutfitId => {
+            let next_id = sanitize_outfit_id(&drafts.outfit_id);
+            if next_id.is_empty() {
+                drafts.invalid_outfit_id = true;
+                loaded.status =
+                    Some("Outfit ID must contain letters/digits/underscores".to_string());
+                return;
+            }
+            if outfits
+                .db
+                .outfits
+                .iter()
+                .enumerate()
+                .any(|(index, candidate)| index != selected && candidate.outfit_id == next_id)
+            {
+                drafts.invalid_outfit_id = true;
+                loaded.status = Some("Outfit ID must be unique".to_string());
+                return;
+            }
+            drafts.invalid_outfit_id = false;
+            if let Some(slot) = outfits.db.outfits.get_mut(selected) {
+                slot.outfit_id = next_id.clone();
+            }
+            drafts.outfit_id = next_id.clone();
+            outfits.dirty = true;
+            loaded.status = Some(format!("Outfits: updated ID to {next_id}"));
+        }
+        OutfitFieldKind::DisplayName => {
+            let next_display = if drafts.display_name.trim().is_empty() {
+                outfit.outfit_id.clone()
+            } else {
+                drafts.display_name.trim().to_string()
+            };
+            if let Some(slot) = outfits.db.outfits.get_mut(selected) {
+                slot.display_name = next_display.clone();
+            }
+            drafts.display_name = next_display.clone();
+            outfits.dirty = true;
+            loaded.status = Some(format!("Outfits: updated display name to {next_display}"));
+        }
+        OutfitFieldKind::TagInput => {
+            let tag = normalize_tag(&drafts.tag_input);
+            if tag.is_empty() {
+                return;
+            }
+            if let Some(slot) = outfits.db.outfits.get_mut(selected) {
+                if !slot.tags.iter().any(|existing| existing == &tag) {
+                    slot.tags.push(tag.clone());
+                    outfits.dirty = true;
+                    loaded.status = Some(format!("Outfits: added tag '{tag}'"));
+                }
+            }
+            drafts.tag_input.clear();
+        }
+    }
+}
+
+fn filter_outfit_input(field: OutfitFieldKind, input: &str) -> String {
+    match field {
+        OutfitFieldKind::OutfitId => input
+            .chars()
+            .filter_map(|ch| {
+                if ch.is_ascii_alphanumeric() {
+                    Some(ch.to_ascii_lowercase())
+                } else if matches!(ch, '_' | '-' | ' ') {
+                    Some('_')
+                } else {
+                    None
+                }
+            })
+            .collect(),
+        OutfitFieldKind::DisplayName => input
+            .chars()
+            .filter(|ch| ch.is_ascii_graphic() || *ch == ' ')
+            .collect(),
+        OutfitFieldKind::TagInput => input
+            .chars()
+            .filter_map(|ch| {
+                if ch.is_ascii_alphanumeric() {
+                    Some(ch.to_ascii_lowercase())
+                } else if matches!(ch, '_' | '-' | ':' | '/') {
+                    Some(ch)
+                } else {
+                    None
+                }
+            })
+            .collect(),
+    }
+}
+
+fn add_filter_tag_from_query(filter: &mut OutfitListFilterState) {
+    let tag = normalize_tag(&filter.query);
+    if tag.is_empty() {
+        return;
+    }
+    if !filter.active_tags.iter().any(|existing| existing == &tag) {
+        filter.active_tags.push(tag);
+    }
+    filter.query.clear();
+}
+
+fn filtered_outfit_count(outfits: &OutfitDbState, filter: &OutfitListFilterState) -> usize {
+    filtered_outfit_indices(outfits, filter).len()
+}
+
+fn filtered_outfit_indices(outfits: &OutfitDbState, filter: &OutfitListFilterState) -> Vec<usize> {
+    outfits
+        .db
+        .outfits
+        .iter()
+        .enumerate()
+        .filter_map(|(index, outfit)| outfit_matches_filter(outfit, filter).then_some(index))
+        .collect()
+}
+
+fn outfit_matches_filter(outfit: &Outfit, filter: &OutfitListFilterState) -> bool {
+    let query = filter.query.trim().to_ascii_lowercase();
+    let query_match = query.is_empty()
+        || outfit.outfit_id.to_ascii_lowercase().contains(&query)
+        || outfit.display_name.to_ascii_lowercase().contains(&query)
+        || outfit
+            .tags
+            .iter()
+            .any(|tag| tag.to_ascii_lowercase().contains(&query));
+
+    if !query_match {
+        return false;
+    }
+
+    filter.active_tags.iter().all(|required| {
+        let required = normalize_tag(required);
+        if required.is_empty() {
+            return true;
+        }
+        outfit.tags.iter().any(|tag| normalize_tag(tag) == required)
+    })
+}
+
+fn autocomplete_tags(outfits: &OutfitDbState, filter: &OutfitListFilterState) -> Vec<String> {
+    let query = normalize_tag(&filter.query);
+    let mut unique = std::collections::BTreeSet::new();
+    for outfit in &outfits.db.outfits {
+        for tag in &outfit.tags {
+            let normalized = normalize_tag(tag);
+            if normalized.is_empty() {
+                continue;
+            }
+            if filter
+                .active_tags
+                .iter()
+                .any(|active| active == &normalized)
+            {
+                continue;
+            }
+            if !query.is_empty() && !normalized.contains(&query) {
+                continue;
+            }
+            unique.insert(normalized);
+        }
+    }
+    unique.into_iter().take(12).collect()
+}
+
+fn snapshot_outfit_from_preview(
+    paper_doll: &PaperDollState,
+    palette_panel: &PalettePanelState,
+    layer_palettes: &LayerPaletteState,
+    outfit_id: String,
+    display_name: String,
+    tags: Vec<String>,
+) -> Outfit {
+    let global = global_palette_choice(palette_panel);
+    let skin = choice_for_layer(LayerCode::Body01, layer_palettes, global);
+    let hair = choice_for_layer(LayerCode::Hair13, layer_palettes, global);
+    let outfit_main = global;
+    let outfit_accent = layer_palettes.by_layer.get(&LayerCode::Outr10).copied();
+
+    let equipped = LayerCode::ALL
+        .into_iter()
+        .filter_map(|layer| {
+            let index = paper_doll.equipped.by_layer.get(&layer)?;
+            let part = paper_doll.catalog.parts.get(*index)?;
+            Some(OutfitEquippedPart {
+                layer,
+                part_key: part.part_key.clone(),
+            })
+        })
+        .collect();
+
+    Outfit {
+        outfit_id,
+        display_name,
+        tags,
+        equipped,
+        palette: OutfitPaletteSelection {
+            skin: RampChoice::Preset(encode_ramp_preset(skin)),
+            hair: RampChoice::Preset(encode_ramp_preset(hair)),
+            outfit_main: RampChoice::Preset(encode_ramp_preset(outfit_main)),
+            outfit_accent: outfit_accent
+                .map(|selection| RampChoice::Preset(encode_ramp_preset(selection))),
+        },
+    }
+}
+
+fn apply_outfit_to_preview(
+    outfit: &Outfit,
+    paper_doll: &mut PaperDollState,
+    palette_panel: &mut PalettePanelState,
+    layer_palettes: &mut LayerPaletteState,
+) {
+    let main = parse_ramp_choice(&outfit.palette.outfit_main)
+        .unwrap_or_else(|| global_palette_choice(palette_panel));
+    palette_panel.selected = Some(main.palette_index);
+    palette_panel.variant = main.variant;
+
+    layer_palettes.by_layer.clear();
+    if let Some(skin) = parse_ramp_choice(&outfit.palette.skin) {
+        if skin != main {
+            layer_palettes.by_layer.insert(LayerCode::Body01, skin);
+        }
+    }
+    if let Some(hair) = parse_ramp_choice(&outfit.palette.hair) {
+        if hair != main {
+            layer_palettes.by_layer.insert(LayerCode::Hair13, hair);
+        }
+    }
+    if let Some(accent_choice) = outfit
+        .palette
+        .outfit_accent
+        .as_ref()
+        .and_then(parse_ramp_choice)
+    {
+        if accent_choice != main {
+            layer_palettes
+                .by_layer
+                .insert(LayerCode::Outr10, accent_choice);
+        }
+    }
+
+    let keys: Vec<String> = outfit
+        .equipped
+        .iter()
+        .map(|entry| entry.part_key.clone())
+        .collect();
+    if paper_doll.loaded {
+        let PaperDollState {
+            catalog, equipped, ..
+        } = paper_doll;
+        equipped.apply_equipped_keys(catalog, &keys);
+    } else {
+        paper_doll.pending_equipped_keys = Some(keys);
+    }
+}
+
+fn next_outfit_id(outfits: &OutfitDbState) -> String {
+    let mut counter = 1usize;
+    loop {
+        let candidate = format!("new_outfit_{counter:03}");
+        if !outfits
+            .db
+            .outfits
+            .iter()
+            .any(|outfit| outfit.outfit_id == candidate)
+        {
+            return candidate;
+        }
+        counter += 1;
+    }
+}
+
+fn sanitize_outfit_id(raw: &str) -> String {
+    let mut id = String::new();
+    let mut last_was_sep = false;
+    for ch in raw.chars() {
+        let mapped = if ch.is_ascii_alphanumeric() {
+            Some(ch.to_ascii_lowercase())
+        } else if matches!(ch, '_' | '-' | ' ') {
+            Some('_')
+        } else {
+            None
+        };
+        let Some(mapped) = mapped else {
+            continue;
+        };
+        if mapped == '_' {
+            if id.is_empty() || last_was_sep {
+                continue;
+            }
+            last_was_sep = true;
+            id.push(mapped);
+        } else {
+            last_was_sep = false;
+            id.push(mapped);
+        }
+    }
+    id.trim_matches('_').to_string()
+}
+
+fn normalize_tag(raw: &str) -> String {
+    raw.trim()
+        .chars()
+        .filter_map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                Some(ch.to_ascii_lowercase())
+            } else if matches!(ch, '_' | '-' | ':' | '/') {
+                Some(ch)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn global_palette_choice(panel: &PalettePanelState) -> LayerPaletteSelection {
+    LayerPaletteSelection {
+        palette_index: panel.selected.unwrap_or(0),
+        variant: panel.variant,
+    }
+}
+
+fn choice_for_layer(
+    layer: LayerCode,
+    layer_palettes: &LayerPaletteState,
+    global: LayerPaletteSelection,
+) -> LayerPaletteSelection {
+    layer_palettes
+        .by_layer
+        .get(&layer)
+        .copied()
+        .unwrap_or(global)
+}
+
+fn encode_ramp_preset(selection: LayerPaletteSelection) -> String {
+    format!(
+        "palette:{}:variant:{}",
+        selection.palette_index, selection.variant
+    )
+}
+
+fn parse_ramp_choice(choice: &RampChoice) -> Option<LayerPaletteSelection> {
+    match choice {
+        RampChoice::Preset(raw) => parse_ramp_preset(raw),
+        RampChoice::Custom(_) => None,
+    }
+}
+
+fn parse_ramp_preset(raw: &str) -> Option<LayerPaletteSelection> {
+    let mut iter = raw.split(':');
+    let key = iter.next()?;
+    if key != "palette" {
+        return None;
+    }
+    let palette_index = iter.next()?.parse::<usize>().ok()?;
+    let variant_key = iter.next()?;
+    if variant_key != "variant" {
+        return None;
+    }
+    let variant = iter.next()?.parse::<usize>().ok()?;
+    Some(LayerPaletteSelection {
+        palette_index,
+        variant,
+    })
+}
+
+fn build_preview_summary(
+    paper_doll: &PaperDollState,
+    palette_panel: &PalettePanelState,
+    layer_palettes: &LayerPaletteState,
+) -> String {
+    let mut lines = Vec::new();
+    lines.push("Equipped parts (preview):".to_string());
+    for layer in LayerCode::ALL {
+        let Some(index) = paper_doll.equipped.by_layer.get(&layer) else {
+            continue;
+        };
+        let Some(part) = paper_doll.catalog.parts.get(*index) else {
+            continue;
+        };
+        lines.push(format!("{}: {}", layer.as_str(), part.part_key));
+    }
+    if lines.len() == 1 {
+        lines.push("(none)".to_string());
+    }
+
+    let global = global_palette_choice(palette_panel);
+    let skin = choice_for_layer(LayerCode::Body01, layer_palettes, global);
+    let hair = choice_for_layer(LayerCode::Hair13, layer_palettes, global);
+    let accent = layer_palettes.by_layer.get(&LayerCode::Outr10).copied();
+    lines.push(String::new());
+    lines.push("Palette snapshot (preview):".to_string());
+    lines.push(format!("skin: {}", encode_ramp_preset(skin)));
+    lines.push(format!("hair: {}", encode_ramp_preset(hair)));
+    lines.push(format!("outfit_main: {}", encode_ramp_preset(global)));
+    lines.push(format!(
+        "outfit_accent: {}",
+        accent
+            .map(encode_ramp_preset)
+            .unwrap_or_else(|| "(none)".to_string())
+    ));
+    lines.join("\n")
+}
+
+fn despawn_children_of(commands: &mut Commands, parent: Entity, children_query: &Query<&Children>) {
+    let Ok(children) = children_query.get(parent) else {
+        return;
+    };
+    for child in children.iter() {
+        commands.entity(child).despawn();
+    }
+}
+
 pub(super) fn handle_grid_field_focus(
     mut fields: Query<(&Interaction, &GridFieldButton), (Changed<Interaction>, With<Button>)>,
     mut drafts: ResMut<GridFieldDrafts>,

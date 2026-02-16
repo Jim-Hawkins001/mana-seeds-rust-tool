@@ -2,6 +2,7 @@ pub mod animation;
 pub mod grid;
 pub mod image;
 pub mod layers;
+pub mod outfits;
 
 use bevy::prelude::*;
 
@@ -13,6 +14,7 @@ impl Plugin for EditorFeaturesPlugin {
             image::ImageFeaturePlugin,
             animation::AnimationFeaturePlugin,
             layers::LayersFeaturePlugin,
+            outfits::OutfitsFeaturePlugin,
         ));
     }
 }

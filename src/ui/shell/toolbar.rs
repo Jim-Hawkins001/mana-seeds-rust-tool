@@ -60,7 +60,9 @@ pub(super) fn handle_toolbar_menu_actions(
         Query<&Interaction, (Changed<Interaction>, With<FileLoadProjectMenuItem>)>,
         Query<&Interaction, (Changed<Interaction>, With<FileSaveMenuItem>)>,
         Query<&Interaction, (Changed<Interaction>, With<FileExitMenuItem>)>,
-        Query<&Interaction, (Changed<Interaction>, With<ModeSpriteMenuItem>)>,
+        Query<&Interaction, (Changed<Interaction>, With<ModeAnimationsMenuItem>)>,
+        Query<&Interaction, (Changed<Interaction>, With<ModePartsMenuItem>)>,
+        Query<&Interaction, (Changed<Interaction>, With<ModeOutfitsMenuItem>)>,
     )>,
     mut toolbar_ui: ResMut<ToolbarUiState>,
     mut mode: ResMut<EditorMode>,
@@ -102,8 +104,26 @@ pub(super) fn handle_toolbar_menu_actions(
         if *interaction != Interaction::Pressed {
             continue;
         }
-        *mode = EditorMode::Sprite;
-        loaded.status = Some("Sprite Mode active".to_string());
+        *mode = EditorMode::Animations;
+        loaded.status = Some("Mode: Animations".to_string());
+        toolbar_ui.show_mode_menu = false;
+    }
+
+    for interaction in &mut menu_queries.p5() {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+        *mode = EditorMode::Parts;
+        loaded.status = Some("Mode: Parts".to_string());
+        toolbar_ui.show_mode_menu = false;
+    }
+
+    for interaction in &mut menu_queries.p6() {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+        *mode = EditorMode::Outfits;
+        loaded.status = Some("Mode: Outfits".to_string());
         toolbar_ui.show_mode_menu = false;
     }
 }

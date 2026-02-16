@@ -7,6 +7,10 @@ use crate::features::animation::{
 use crate::features::grid::{overlay, state as grid_state};
 use crate::features::image::loader::LoadedImage;
 use crate::features::layers::{LayerCode, PaperDollState};
+use crate::features::outfits::{
+    EquippedPart as OutfitEquippedPart, Outfit, OutfitDbState,
+    PaletteSelection as OutfitPaletteSelection, RampChoice,
+};
 use crate::ui::panels::{bottom_panel, center_canvas, left_panel, right_panel};
 use crate::ui::toolbar as top_toolbar;
 use crate::ui::widgets::{scroll_region, splitters};
@@ -43,11 +47,14 @@ impl Plugin for UiShellPlugin {
             .init_resource::<CanvasView>()
             .init_resource::<InputContext>()
             .init_resource::<LeftPanelSectionsState>()
+            .init_resource::<RightPanelSectionsState>()
             .init_resource::<PalettePanelState>()
             .init_resource::<LayerPaletteState>()
             .init_resource::<PaletteRemapCache>()
             .init_resource::<GridFieldDrafts>()
             .init_resource::<AnimationFieldDrafts>()
+            .init_resource::<OutfitFieldDrafts>()
+            .init_resource::<OutfitListFilterState>()
             .init_resource::<AnimationPanelState>()
             .init_resource::<PreviewStripUiState>()
             .init_resource::<PreviewAtlasState>()
@@ -72,6 +79,28 @@ impl Plugin for UiShellPlugin {
                     handle_grid_field_keyboard_input,
                     commit_grid_field_on_blur,
                     sync_grid_fields_from_state,
+                ),
+            )
+            .add_systems(Update, sync_mode_section_defaults)
+            .add_systems(
+                Update,
+                (
+                    handle_right_panel_playback_section_toggle,
+                    sync_right_panel_playback_section,
+                    handle_right_panel_outfit_section_toggle,
+                    sync_right_panel_outfit_section,
+                    handle_outfit_action_buttons,
+                    handle_outfit_list_clicks,
+                    handle_outfit_tag_remove_buttons,
+                    handle_outfit_field_focus,
+                    handle_outfit_field_keyboard_input,
+                    commit_outfit_field_on_blur,
+                    handle_outfit_filter_field_focus,
+                    handle_outfit_filter_keyboard_input,
+                    commit_outfit_filter_on_blur,
+                    handle_outfit_filter_buttons,
+                    handle_outfit_filter_tag_remove_buttons,
+                    handle_outfit_autocomplete_clicks,
                 ),
             )
             .add_systems(
@@ -119,6 +148,7 @@ impl Plugin for UiShellPlugin {
                     sync_workspace_highlights_derived,
                 ),
             )
+            .add_systems(Update, sync_outfit_panel_widgets)
             .add_systems(Update, sync_palette_panel_text)
             .add_systems(
                 Update,
@@ -182,7 +212,11 @@ struct FileSaveMenuItem;
 #[derive(Component)]
 struct FileExitMenuItem;
 #[derive(Component)]
-struct ModeSpriteMenuItem;
+struct ModeAnimationsMenuItem;
+#[derive(Component)]
+struct ModePartsMenuItem;
+#[derive(Component)]
+struct ModeOutfitsMenuItem;
 #[derive(Component)]
 struct ClearSelectionButton;
 #[derive(Component)]
@@ -231,6 +265,72 @@ struct SectionToggleText {
 #[derive(Component, Clone, Copy)]
 struct SectionBody {
     section: LeftPanelSection,
+}
+#[derive(Component)]
+struct RightPanelPlaybackSectionToggleButton;
+#[derive(Component)]
+struct RightPanelPlaybackSectionToggleText;
+#[derive(Component)]
+struct RightPanelPlaybackSectionBody;
+#[derive(Component)]
+struct RightPanelOutfitSectionToggleButton;
+#[derive(Component)]
+struct RightPanelOutfitSectionToggleText;
+#[derive(Component)]
+struct RightPanelOutfitSectionBody;
+#[derive(Component)]
+struct AddOutfitButton;
+#[derive(Component)]
+struct DeleteOutfitButton;
+#[derive(Component)]
+struct SaveOutfitChangesButton;
+#[derive(Component)]
+struct OutfitListContainer;
+#[derive(Component, Clone, Copy)]
+struct OutfitListItemButton {
+    index: usize,
+}
+#[derive(Component)]
+struct OutfitIdentityText;
+#[derive(Component)]
+struct OutfitSummaryText;
+#[derive(Component)]
+struct OutfitTagChipsContainer;
+#[derive(Component)]
+struct OutfitStatusText;
+#[derive(Component)]
+struct AddOutfitTagButton;
+#[derive(Component)]
+struct AddOutfitFilterTagButton;
+#[derive(Component)]
+struct ClearOutfitFiltersButton;
+#[derive(Component)]
+struct OutfitFilterFieldButton;
+#[derive(Component)]
+struct OutfitFilterFieldText;
+#[derive(Component)]
+struct OutfitFilterChipsContainer;
+#[derive(Component)]
+struct OutfitFilterAutocompleteContainer;
+#[derive(Component, Clone, Copy)]
+struct OutfitRemoveTagButton {
+    tag_index: usize,
+}
+#[derive(Component, Clone, Copy)]
+struct OutfitRemoveFilterTagButton {
+    tag_index: usize,
+}
+#[derive(Component, Clone)]
+struct OutfitAutocompleteSuggestionButton {
+    tag: String,
+}
+#[derive(Component, Clone, Copy)]
+struct OutfitFieldButton {
+    field: OutfitFieldKind,
+}
+#[derive(Component, Clone, Copy)]
+struct OutfitFieldText {
+    field: OutfitFieldKind,
 }
 #[derive(Component, Clone, Copy)]
 struct GridFieldButton {
@@ -404,10 +504,25 @@ impl Default for LeftPanelSectionsState {
     fn default() -> Self {
         Self {
             sprite_sheet_open: true,
-            grid_settings_open: true,
+            grid_settings_open: false,
             parts_open: false,
             palettes_open: false,
-            animations_open: false,
+            animations_open: true,
+        }
+    }
+}
+
+#[derive(Resource, Clone)]
+struct RightPanelSectionsState {
+    playback_open: bool,
+    outfits_open: bool,
+}
+
+impl Default for RightPanelSectionsState {
+    fn default() -> Self {
+        Self {
+            playback_open: true,
+            outfits_open: false,
         }
     }
 }
@@ -573,6 +688,61 @@ impl AnimationFieldDrafts {
             AnimationFieldKind::HoldLast => self.invalid_hold_last = invalid,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum OutfitFieldKind {
+    OutfitId,
+    DisplayName,
+    TagInput,
+}
+
+#[derive(Resource, Default, Clone)]
+struct OutfitFieldDrafts {
+    outfit_id: String,
+    display_name: String,
+    tag_input: String,
+    active: Option<OutfitFieldKind>,
+    invalid_outfit_id: bool,
+}
+
+impl OutfitFieldDrafts {
+    fn set_from_outfit(&mut self, outfit: &Outfit) {
+        self.outfit_id = outfit.outfit_id.clone();
+        self.display_name = outfit.display_name.clone();
+        self.invalid_outfit_id = false;
+    }
+
+    fn clear_for_none_selected(&mut self) {
+        self.outfit_id.clear();
+        self.display_name.clear();
+        self.tag_input.clear();
+        self.active = None;
+        self.invalid_outfit_id = false;
+    }
+
+    fn value(&self, field: OutfitFieldKind) -> &str {
+        match field {
+            OutfitFieldKind::OutfitId => &self.outfit_id,
+            OutfitFieldKind::DisplayName => &self.display_name,
+            OutfitFieldKind::TagInput => &self.tag_input,
+        }
+    }
+
+    fn value_mut(&mut self, field: OutfitFieldKind) -> &mut String {
+        match field {
+            OutfitFieldKind::OutfitId => &mut self.outfit_id,
+            OutfitFieldKind::DisplayName => &mut self.display_name,
+            OutfitFieldKind::TagInput => &mut self.tag_input,
+        }
+    }
+}
+
+#[derive(Resource, Default, Clone)]
+struct OutfitListFilterState {
+    query: String,
+    active_tags: Vec<String>,
+    field_active: bool,
 }
 
 #[derive(Resource, Clone)]

@@ -1,6 +1,7 @@
 use crate::app::state::GridState;
 use bevy::image::TextureAtlasLayout;
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
@@ -9,7 +10,7 @@ pub enum BaseType {
     Fbas,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum LayerCode {
     Undr00,
     Body01,
@@ -159,6 +160,27 @@ impl PartCatalog {
             .get(&layer)
             .map_or(&[] as &[usize], Vec::as_slice)
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PartCatalogDb {
+    version: u32,
+    parts: Vec<PartCatalogEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PartCatalogEntry {
+    part_key: String,
+    layer: String,
+    name: String,
+    version: u8,
+    palette: Option<char>,
+    special_e: bool,
+    image_path: String,
+    mapping_rule: String,
+    slot_conflict_group: Option<String>,
+    paired_layers_required: Vec<String>,
+    grid_inherit_from_project: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -329,7 +351,10 @@ fn load_paper_doll_catalog_once(asset_server: Res<AssetServer>, mut state: ResMu
     if state.loaded {
         return;
     }
-    let (catalog, errors) = scan_part_catalog();
+    let (catalog, mut errors) = scan_part_catalog();
+    if let Err(err) = save_parts_catalog_snapshot(&catalog) {
+        errors.push(err);
+    }
     let palette_catalog = scan_palette_catalog();
     state.image_handles.clear();
     state.palette_image_handles.clear();
@@ -677,6 +702,58 @@ fn build_catalog(parts: Vec<PartDef>) -> PartCatalog {
     catalog
 }
 
+fn save_parts_catalog_snapshot(catalog: &PartCatalog) -> Result<(), String> {
+    let db = build_parts_catalog_db(catalog);
+    let ron_text = ron::ser::to_string_pretty(&db, ron::ser::PrettyConfig::default())
+        .map_err(|err| format!("Failed to serialize parts catalog: {err}"))?;
+    let path = project_root_path("parts_catalog.ron");
+    std::fs::write(&path, ron_text)
+        .map_err(|err| format!("Failed to write {}: {err}", path.display()))
+}
+
+fn build_parts_catalog_db(catalog: &PartCatalog) -> PartCatalogDb {
+    let mut parts = Vec::with_capacity(catalog.parts.len());
+    for part in &catalog.parts {
+        let set_key = part.set_key();
+        let paired_layers_required = if catalog.paired_required_sets.contains(&set_key) {
+            catalog
+                .sets
+                .get(&set_key)
+                .into_iter()
+                .flatten()
+                .filter_map(|index| catalog.parts.get(*index))
+                .map(|set_part| set_part.part_id.layer.as_str().to_string())
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        parts.push(PartCatalogEntry {
+            part_key: part.part_key.clone(),
+            layer: part.part_id.layer.as_str().to_string(),
+            name: part.part_id.name.clone(),
+            version: part.part_id.version,
+            palette: part.part_id.palette,
+            special_e: part.part_id.special == Some(Special::E),
+            image_path: part.image_path.clone(),
+            mapping_rule: "FollowBodyCells".to_string(),
+            slot_conflict_group: part.slot.map(slot_group_name),
+            paired_layers_required,
+            grid_inherit_from_project: true,
+        });
+    }
+
+    PartCatalogDb { version: 1, parts }
+}
+
+fn slot_group_name(slot: Slot) -> String {
+    match slot {
+        Slot::Lower => "LowerBody".to_string(),
+        Slot::Footwear => "Footwear".to_string(),
+        Slot::Head => "Head".to_string(),
+    }
+}
+
 fn slot_for_layer(layer: LayerCode) -> Option<Slot> {
     Some(match layer {
         LayerCode::Lwr104 | LayerCode::Lwr206 | LayerCode::Lwr308 => Slot::Lower,
@@ -710,6 +787,20 @@ fn candidate_assets_roots() -> Vec<PathBuf> {
         roots.push(ancestor.join("assets"));
     }
     roots
+}
+
+fn project_root_path(file_name: &str) -> PathBuf {
+    if let Ok(cwd) = std::env::current_dir() {
+        let direct = cwd.join(file_name);
+        if direct.parent().is_some_and(Path::exists) {
+            return direct;
+        }
+        let nested = cwd.join("asset_hander").join(file_name);
+        if nested.parent().is_some_and(Path::exists) {
+            return nested;
+        }
+    }
+    PathBuf::from(file_name)
 }
 
 #[cfg(test)]

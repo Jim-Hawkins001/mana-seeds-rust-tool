@@ -7,9 +7,11 @@ pub(super) struct SetupUiCtx<'w, 's> {
     layout: Res<'w, LayoutState>,
     mode: Res<'w, EditorMode>,
     anim_state: Res<'w, AnimationAuthoringState>,
+    outfits: Res<'w, OutfitDbState>,
     viewer_state: ResMut<'w, AnimViewerState>,
     grid_drafts: ResMut<'w, GridFieldDrafts>,
     animation_fields: ResMut<'w, AnimationFieldDrafts>,
+    outfit_fields: ResMut<'w, OutfitFieldDrafts>,
     animation_panel: ResMut<'w, AnimationPanelState>,
     preview_strip: ResMut<'w, PreviewStripUiState>,
     _scratch: Local<'s, ()>,
@@ -21,9 +23,11 @@ pub(super) fn setup_ui_shell(mut commands: Commands, ui: SetupUiCtx) {
         layout,
         mode,
         anim_state,
+        outfits,
         mut viewer_state,
         mut grid_drafts,
         mut animation_fields,
+        mut outfit_fields,
         mut animation_panel,
         mut preview_strip,
         ..
@@ -42,6 +46,14 @@ pub(super) fn setup_ui_shell(mut commands: Commands, ui: SetupUiCtx) {
     preview_strip.dirty = true;
     viewer_state.clip_id = anim_state.active_clip().map(|clip| clip.id.clone());
     reset_viewer_playback(&mut viewer_state);
+    if let Some(outfit) = outfits
+        .selected
+        .and_then(|index| outfits.db.outfits.get(index))
+    {
+        outfit_fields.set_from_outfit(outfit);
+    } else {
+        outfit_fields.clear_for_none_selected();
+    }
     commands.spawn(Camera2d);
 
     commands
@@ -121,7 +133,9 @@ pub(super) fn setup_ui_shell(mut commands: Commands, ui: SetupUiCtx) {
                         ModeMenuPanel,
                     ))
                     .with_children(|mode_menu| {
-                        spawn_button(mode_menu, "Sprite Mode", ModeSpriteMenuItem);
+                        spawn_button(mode_menu, "Animations", ModeAnimationsMenuItem);
+                        spawn_button(mode_menu, "Parts", ModePartsMenuItem);
+                        spawn_button(mode_menu, "Outfits", ModeOutfitsMenuItem);
                     });
             });
 
@@ -759,212 +773,441 @@ pub(super) fn setup_ui_shell(mut commands: Commands, ui: SetupUiCtx) {
                     .with_children(|right| {
                         right
                             .spawn(Node {
-                                display: Display::Grid,
                                 width: percent(100),
                                 height: percent(100),
-                                grid_template_columns: vec![
-                                    RepeatedGridTrack::flex(1, 1.0),
-                                    RepeatedGridTrack::auto(1),
-                                ],
+                                flex_direction: FlexDirection::Column,
+                                row_gap: px(8),
                                 ..default()
                             })
-                            .with_children(|right_frame| {
-                                let scroll_id = right_frame
+                            .with_children(|right_content| {
+                                right_content.spawn((Text::new("Animation Viewer"),));
+                                right_content
                                     .spawn((
                                         Node {
-                                            grid_row: GridPlacement::start(1),
-                                            grid_column: GridPlacement::start(1),
-                                            flex_direction: FlexDirection::Column,
-                                            row_gap: px(8),
-                                            overflow: Overflow::scroll_y(),
-                                            ..scroll_region::scroll_node()
+                                            width: percent(100),
+                                            min_height: px(280),
+                                            justify_content: JustifyContent::Center,
+                                            align_items: AlignItems::Center,
+                                            border: UiRect::all(px(1)),
+                                            position_type: PositionType::Relative,
+                                            ..default()
                                         },
-                                        BackgroundColor(Color::NONE),
-                                        scroll_region::ScrollRegion,
-                                        RightPanelInputRegion,
-                                        ScrollPosition::default(),
-                                        Interaction::None,
-                                        RelativeCursorPosition::default(),
+                                        BackgroundColor(Color::srgb(0.08, 0.08, 0.10)),
+                                        BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.20)),
                                     ))
-                                    .with_children(|right_content| {
-                                        right_content.spawn((Text::new("Animation Viewer"),));
-                                        right_content
-                                            .spawn((
-                                                Node {
-                                                    width: percent(100),
-                                                    min_height: px(280),
-                                                    justify_content: JustifyContent::Center,
-                                                    align_items: AlignItems::Center,
-                                                    border: UiRect::all(px(1)),
-                                                    position_type: PositionType::Relative,
-                                                    ..default()
-                                                },
-                                                BackgroundColor(Color::srgb(0.08, 0.08, 0.10)),
-                                                BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.20)),
-                                            ))
-                                            .with_children(|viewer| {
-                                                viewer
-                                                    .spawn(Node {
-                                                        width: px(220),
-                                                        height: px(220),
-                                                        position_type: PositionType::Relative,
-                                                        ..default()
-                                                    })
-                                                    .with_children(|stack| {
-                                                        for layer in LayerCode::ALL {
-                                                            stack.spawn((
-                                                                ImageNode::default(),
-                                                                Node {
-                                                                    width: px(220),
-                                                                    height: px(220),
-                                                                    position_type:
-                                                                        PositionType::Absolute,
-                                                                    left: px(0),
-                                                                    top: px(0),
-                                                                    display: if layer
-                                                                        == LayerCode::Body01
-                                                                    {
-                                                                        Display::Flex
-                                                                    } else {
-                                                                        Display::None
-                                                                    },
-                                                                    ..default()
-                                                                },
-                                                                ViewerLayerImageNode { layer },
-                                                            ));
-                                                        }
-                                                    });
-                                                viewer
-                                                    .spawn((
+                                    .with_children(|viewer| {
+                                        viewer
+                                            .spawn(Node {
+                                                width: px(220),
+                                                height: px(220),
+                                                position_type: PositionType::Relative,
+                                                ..default()
+                                            })
+                                            .with_children(|stack| {
+                                                for layer in LayerCode::ALL {
+                                                    stack.spawn((
+                                                        ImageNode::default(),
                                                         Node {
+                                                            width: px(220),
+                                                            height: px(220),
                                                             position_type: PositionType::Absolute,
-                                                            top: px(6),
-                                                            left: px(6),
-                                                            flex_direction: FlexDirection::Column,
-                                                            row_gap: px(2),
-                                                            padding: UiRect::all(px(4)),
-                                                            border: UiRect::all(px(1)),
+                                                            left: px(0),
+                                                            top: px(0),
+                                                            display: if layer == LayerCode::Body01 {
+                                                                Display::Flex
+                                                            } else {
+                                                                Display::None
+                                                            },
                                                             ..default()
                                                         },
-                                                        BackgroundColor(Color::srgba(
-                                                            0.05, 0.05, 0.07, 0.80,
-                                                        )),
-                                                        BorderColor::all(Color::srgba(
-                                                            1.0, 1.0, 1.0, 0.22,
-                                                        )),
-                                                    ))
-                                                    .with_children(|overlay| {
-                                                        overlay.spawn((
-                                                            Text::new("Clip: (none)"),
-                                                            TextFont::from_font_size(10.0),
-                                                            ViewerClipText,
-                                                        ));
-                                                        overlay.spawn((
-                                                            Text::new("Cell: -"),
-                                                            TextFont::from_font_size(10.0),
-                                                            ViewerCellText,
-                                                        ));
-                                                        overlay.spawn((
-                                                            Text::new("Step: 0/0"),
-                                                            TextFont::from_font_size(10.0),
-                                                            ViewerStepText,
-                                                        ));
-                                                        overlay.spawn((
-                                                            Text::new("Ms: -"),
-                                                            TextFont::from_font_size(10.0),
-                                                            ViewerMsText,
-                                                        ));
-                                                        overlay.spawn((
-                                                            Text::new("Flip: -"),
-                                                            TextFont::from_font_size(10.0),
-                                                            ViewerFlipText,
-                                                        ));
-                                                    });
-                                            });
-
-                                        right_content.spawn((Text::new("Direction"),));
-                                        right_content
-                                            .spawn((Node {
-                                                width: percent(100),
-                                                column_gap: px(6),
-                                                flex_wrap: FlexWrap::Wrap,
-                                                ..default()
-                                            },))
-                                            .with_children(|row| {
-                                                for direction in Direction::ALL {
-                                                    spawn_viewer_direction_button(row, direction);
+                                                        ViewerLayerImageNode { layer },
+                                                    ));
                                                 }
                                             });
-
-                                        right_content.spawn((Text::new("Transport"),));
-                                        right_content
-                                            .spawn((Node {
-                                                width: percent(100),
-                                                column_gap: px(6),
-                                                flex_wrap: FlexWrap::Wrap,
-                                                ..default()
-                                            },))
-                                            .with_children(|row| {
-                                                row.spawn((
-                                                    Button,
-                                                    Node {
-                                                        padding: UiRect::axes(px(8), px(6)),
-                                                        border: UiRect::all(px(1)),
-                                                        ..default()
-                                                    },
-                                                    BackgroundColor(Color::srgb(0.16, 0.16, 0.20)),
-                                                    BorderColor::all(Color::srgba(
-                                                        1.0, 1.0, 1.0, 0.20,
-                                                    )),
-                                                    ViewerPlayPauseButton,
-                                                ))
-                                                .with_children(|button| {
-                                                    button.spawn((
-                                                        Text::new("Pause"),
-                                                        ViewerPlayPauseLabel,
-                                                    ));
-                                                });
-                                                spawn_button(row, "Prev", ViewerPrevFrameButton);
-                                                spawn_button(row, "Next", ViewerNextFrameButton);
-                                            });
-
-                                        right_content.spawn((Text::new("Speed"),));
-                                        right_content
-                                            .spawn((Node {
-                                                width: percent(100),
-                                                column_gap: px(6),
-                                                flex_wrap: FlexWrap::Wrap,
-                                                ..default()
-                                            },))
-                                            .with_children(|row| {
-                                                spawn_viewer_speed_button(row, "0.5x", 0.5);
-                                                spawn_viewer_speed_button(row, "1x", 1.0);
-                                                spawn_viewer_speed_button(row, "2x", 2.0);
-                                            });
-
-                                        right_content.spawn((Text::new("Loop Override"),));
-                                        right_content
+                                        viewer
                                             .spawn((
-                                                Button,
                                                 Node {
-                                                    padding: UiRect::axes(px(8), px(6)),
+                                                    position_type: PositionType::Absolute,
+                                                    top: px(6),
+                                                    left: px(6),
+                                                    flex_direction: FlexDirection::Column,
+                                                    row_gap: px(2),
+                                                    padding: UiRect::all(px(4)),
                                                     border: UiRect::all(px(1)),
                                                     ..default()
                                                 },
-                                                BackgroundColor(Color::srgb(0.16, 0.16, 0.20)),
-                                                BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.20)),
-                                                ViewerLoopOverrideButton,
+                                                BackgroundColor(Color::srgba(0.05, 0.05, 0.07, 0.80)),
+                                                BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.22)),
                                             ))
-                                            .with_children(|button| {
-                                                button.spawn((
-                                                    Text::new("Off"),
-                                                    ViewerLoopOverrideLabel,
+                                            .with_children(|overlay| {
+                                                overlay.spawn((
+                                                    Text::new("Clip: (none)"),
+                                                    TextFont::from_font_size(10.0),
+                                                    ViewerClipText,
+                                                ));
+                                                overlay.spawn((
+                                                    Text::new("Cell: -"),
+                                                    TextFont::from_font_size(10.0),
+                                                    ViewerCellText,
+                                                ));
+                                                overlay.spawn((
+                                                    Text::new("Step: 0/0"),
+                                                    TextFont::from_font_size(10.0),
+                                                    ViewerStepText,
+                                                ));
+                                                overlay.spawn((
+                                                    Text::new("Ms: -"),
+                                                    TextFont::from_font_size(10.0),
+                                                    ViewerMsText,
+                                                ));
+                                                overlay.spawn((
+                                                    Text::new("Flip: -"),
+                                                    TextFont::from_font_size(10.0),
+                                                    ViewerFlipText,
                                                 ));
                                             });
-                                    })
-                                    .id();
+                                    });
 
-                                spawn_vertical_scrollbar(right_frame, scroll_id);
+                                right_content
+                                    .spawn(Node {
+                                        display: Display::Grid,
+                                        width: percent(100),
+                                        flex_grow: 1.0,
+                                        min_height: px(0),
+                                        grid_template_columns: vec![
+                                            RepeatedGridTrack::flex(1, 1.0),
+                                            RepeatedGridTrack::auto(1),
+                                        ],
+                                        ..default()
+                                    })
+                                    .with_children(|right_frame| {
+                                        let scroll_id = right_frame
+                                            .spawn((
+                                                Node {
+                                                    grid_row: GridPlacement::start(1),
+                                                    grid_column: GridPlacement::start(1),
+                                                    flex_direction: FlexDirection::Column,
+                                                    row_gap: px(8),
+                                                    min_height: px(0),
+                                                    overflow: Overflow::scroll_y(),
+                                                    ..scroll_region::scroll_node()
+                                                },
+                                                BackgroundColor(Color::NONE),
+                                                scroll_region::ScrollRegion,
+                                                RightPanelInputRegion,
+                                                ScrollPosition::default(),
+                                                Interaction::None,
+                                                RelativeCursorPosition::default(),
+                                            ))
+                                            .with_children(|scroll_content| {
+                                                spawn_right_panel_section_header(
+                                                    scroll_content,
+                                                    "Playback",
+                                                );
+                                                scroll_content
+                                                    .spawn((
+                                                        Node {
+                                                            width: percent(100),
+                                                            flex_direction: FlexDirection::Column,
+                                                            row_gap: px(8),
+                                                            padding: UiRect::left(px(6)),
+                                                            ..default()
+                                                        },
+                                                        RightPanelPlaybackSectionBody,
+                                                    ))
+                                                    .with_children(|playback| {
+                                                        playback.spawn((Text::new("Direction"),));
+                                                        playback
+                                                            .spawn((Node {
+                                                                width: percent(100),
+                                                                column_gap: px(6),
+                                                                flex_wrap: FlexWrap::Wrap,
+                                                                ..default()
+                                                            },))
+                                                            .with_children(|row| {
+                                                                for direction in Direction::ALL {
+                                                                    spawn_viewer_direction_button(
+                                                                        row, direction,
+                                                                    );
+                                                                }
+                                                            });
+
+                                                        playback.spawn((Text::new("Transport"),));
+                                                        playback
+                                                            .spawn((Node {
+                                                                width: percent(100),
+                                                                column_gap: px(6),
+                                                                flex_wrap: FlexWrap::Wrap,
+                                                                ..default()
+                                                            },))
+                                                            .with_children(|row| {
+                                                                row.spawn((
+                                                                    Button,
+                                                                    Node {
+                                                                        padding: UiRect::axes(
+                                                                            px(8),
+                                                                            px(6),
+                                                                        ),
+                                                                        border: UiRect::all(px(1)),
+                                                                        ..default()
+                                                                    },
+                                                                    BackgroundColor(Color::srgb(
+                                                                        0.16, 0.16, 0.20,
+                                                                    )),
+                                                                    BorderColor::all(Color::srgba(
+                                                                        1.0, 1.0, 1.0, 0.20,
+                                                                    )),
+                                                                    ViewerPlayPauseButton,
+                                                                ))
+                                                                .with_children(|button| {
+                                                                    button.spawn((
+                                                                        Text::new("Pause"),
+                                                                        ViewerPlayPauseLabel,
+                                                                    ));
+                                                                });
+                                                                spawn_button(
+                                                                    row,
+                                                                    "Prev",
+                                                                    ViewerPrevFrameButton,
+                                                                );
+                                                                spawn_button(
+                                                                    row,
+                                                                    "Next",
+                                                                    ViewerNextFrameButton,
+                                                                );
+                                                            });
+
+                                                        playback.spawn((Text::new("Speed"),));
+                                                        playback
+                                                            .spawn((Node {
+                                                                width: percent(100),
+                                                                column_gap: px(6),
+                                                                flex_wrap: FlexWrap::Wrap,
+                                                                ..default()
+                                                            },))
+                                                            .with_children(|row| {
+                                                                spawn_viewer_speed_button(
+                                                                    row, "0.5x", 0.5,
+                                                                );
+                                                                spawn_viewer_speed_button(
+                                                                    row, "1x", 1.0,
+                                                                );
+                                                                spawn_viewer_speed_button(
+                                                                    row, "2x", 2.0,
+                                                                );
+                                                            });
+
+                                                        playback.spawn((Text::new("Loop Override"),));
+                                                        playback
+                                                            .spawn((
+                                                                Button,
+                                                                Node {
+                                                                    padding: UiRect::axes(px(8), px(6)),
+                                                                    border: UiRect::all(px(1)),
+                                                                    ..default()
+                                                                },
+                                                                BackgroundColor(Color::srgb(
+                                                                    0.16, 0.16, 0.20,
+                                                                )),
+                                                                BorderColor::all(Color::srgba(
+                                                                    1.0, 1.0, 1.0, 0.20,
+                                                                )),
+                                                                ViewerLoopOverrideButton,
+                                                            ))
+                                                            .with_children(|button| {
+                                                                button.spawn((
+                                                                    Text::new("Off"),
+                                                                    ViewerLoopOverrideLabel,
+                                                                ));
+                                                            });
+                                                    });
+
+                                                spawn_right_panel_outfit_section_header(
+                                                    scroll_content,
+                                                    "Outfits",
+                                                );
+                                                scroll_content
+                                                    .spawn((
+                                                        Node {
+                                                            width: percent(100),
+                                                            flex_direction: FlexDirection::Column,
+                                                            row_gap: px(8),
+                                                            padding: UiRect::left(px(6)),
+                                                            ..default()
+                                                        },
+                                                        RightPanelOutfitSectionBody,
+                                                    ))
+                                                    .with_children(|outfits| {
+                                                        outfits
+                                                            .spawn(Node {
+                                                                width: percent(100),
+                                                                column_gap: px(6),
+                                                                flex_wrap: FlexWrap::Wrap,
+                                                                ..default()
+                                                            })
+                                                            .with_children(|row| {
+                                                                spawn_button(
+                                                                    row,
+                                                                    "Add Outfit",
+                                                                    AddOutfitButton,
+                                                                );
+                                                                spawn_button(
+                                                                    row,
+                                                                    "Save Changes",
+                                                                    SaveOutfitChangesButton,
+                                                                );
+                                                                spawn_button(
+                                                                    row,
+                                                                    "Delete Outfit",
+                                                                    DeleteOutfitButton,
+                                                                );
+                                                            });
+
+                                                        outfits.spawn((Text::new("Filter"),));
+                                                        spawn_outfit_filter_text_field(
+                                                            outfits,
+                                                            "Search",
+                                                        );
+                                                        outfits
+                                                            .spawn(Node {
+                                                                width: percent(100),
+                                                                column_gap: px(6),
+                                                                flex_wrap: FlexWrap::Wrap,
+                                                                ..default()
+                                                            })
+                                                            .with_children(|row| {
+                                                                spawn_button(
+                                                                    row,
+                                                                    "Add Filter Tag",
+                                                                    AddOutfitFilterTagButton,
+                                                                );
+                                                                spawn_button(
+                                                                    row,
+                                                                    "Clear Filters",
+                                                                    ClearOutfitFiltersButton,
+                                                                );
+                                                            });
+                                                        outfits
+                                                            .spawn((
+                                                                Node {
+                                                                    width: percent(100),
+                                                                    column_gap: px(6),
+                                                                    row_gap: px(4),
+                                                                    flex_wrap: FlexWrap::Wrap,
+                                                                    ..default()
+                                                                },
+                                                                OutfitFilterChipsContainer,
+                                                            ));
+                                                        outfits
+                                                            .spawn((
+                                                                Node {
+                                                                    width: percent(100),
+                                                                    column_gap: px(6),
+                                                                    row_gap: px(4),
+                                                                    flex_wrap: FlexWrap::Wrap,
+                                                                    ..default()
+                                                                },
+                                                                OutfitFilterAutocompleteContainer,
+                                                            ));
+
+                                                        outfits.spawn((Text::new("Outfit List"),));
+                                                        outfits
+                                                            .spawn((
+                                                                Node {
+                                                                    width: percent(100),
+                                                                    max_height: px(180),
+                                                                    min_height: px(120),
+                                                                    border: UiRect::all(px(1)),
+                                                                    padding: UiRect::all(px(4)),
+                                                                    flex_direction:
+                                                                        FlexDirection::Column,
+                                                                    row_gap: px(4),
+                                                                    overflow: Overflow::scroll_y(),
+                                                                    ..default()
+                                                                },
+                                                                BackgroundColor(Color::srgb(
+                                                                    0.10, 0.10, 0.13,
+                                                                )),
+                                                                BorderColor::all(Color::srgba(
+                                                                    1.0, 1.0, 1.0, 0.20,
+                                                                )),
+                                                                ScrollPosition::default(),
+                                                            ))
+                                                            .with_children(|list| {
+                                                                list.spawn((
+                                                                    Node {
+                                                                        width: percent(100),
+                                                                        flex_direction:
+                                                                            FlexDirection::Column,
+                                                                        row_gap: px(4),
+                                                                        ..default()
+                                                                    },
+                                                                    OutfitListContainer,
+                                                                ));
+                                                            });
+
+                                                        outfits.spawn((
+                                                            Text::new("Selected: (none)"),
+                                                            OutfitIdentityText,
+                                                        ));
+                                                        spawn_outfit_text_field(
+                                                            outfits,
+                                                            "Outfit ID",
+                                                            OutfitFieldKind::OutfitId,
+                                                        );
+                                                        spawn_outfit_text_field(
+                                                            outfits,
+                                                            "Display Name",
+                                                            OutfitFieldKind::DisplayName,
+                                                        );
+                                                        spawn_outfit_text_field(
+                                                            outfits,
+                                                            "Tag Input",
+                                                            OutfitFieldKind::TagInput,
+                                                        );
+                                                        outfits
+                                                            .spawn(Node {
+                                                                width: percent(100),
+                                                                column_gap: px(6),
+                                                                flex_wrap: FlexWrap::Wrap,
+                                                                ..default()
+                                                            })
+                                                            .with_children(|row| {
+                                                                spawn_button(
+                                                                    row,
+                                                                    "Add Tag",
+                                                                    AddOutfitTagButton,
+                                                                );
+                                                            });
+                                                        outfits
+                                                            .spawn((
+                                                                Node {
+                                                                    width: percent(100),
+                                                                    column_gap: px(6),
+                                                                    row_gap: px(4),
+                                                                    flex_wrap: FlexWrap::Wrap,
+                                                                    ..default()
+                                                                },
+                                                                OutfitTagChipsContainer,
+                                                            ));
+
+                                                        outfits.spawn((Text::new("Summary"),));
+                                                        outfits.spawn((
+                                                            Text::new("Equipped parts (preview):\n(none)"),
+                                                            TextFont::from_font_size(10.0),
+                                                            OutfitSummaryText,
+                                                        ));
+                                                        outfits.spawn((
+                                                            Text::new("Outfits: 0"),
+                                                            TextFont::from_font_size(10.0),
+                                                            OutfitStatusText,
+                                                        ));
+                                                    });
+                                            })
+                                            .id();
+
+                                        spawn_vertical_scrollbar(right_frame, scroll_id);
+                                    });
                             });
                     });
             });
@@ -1284,6 +1527,131 @@ pub(super) fn spawn_section_header(
         .with_children(|row| {
             row.spawn((Text::new(""), SectionToggleText { section }));
             row.spawn((Text::new(title),));
+        });
+}
+
+pub(super) fn spawn_right_panel_section_header(parent: &mut ChildSpawnerCommands, title: &str) {
+    parent
+        .spawn((
+            Button,
+            Node {
+                width: percent(100),
+                padding: UiRect::axes(px(6), px(4)),
+                column_gap: px(6),
+                align_items: AlignItems::Center,
+                border: UiRect::all(px(1)),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.13, 0.13, 0.16)),
+            BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.18)),
+            RightPanelPlaybackSectionToggleButton,
+        ))
+        .with_children(|row| {
+            row.spawn((Text::new("v"), RightPanelPlaybackSectionToggleText));
+            row.spawn((Text::new(title),));
+        });
+}
+
+pub(super) fn spawn_right_panel_outfit_section_header(
+    parent: &mut ChildSpawnerCommands,
+    title: &str,
+) {
+    parent
+        .spawn((
+            Button,
+            Node {
+                width: percent(100),
+                padding: UiRect::axes(px(6), px(4)),
+                column_gap: px(6),
+                align_items: AlignItems::Center,
+                border: UiRect::all(px(1)),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.13, 0.13, 0.16)),
+            BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.18)),
+            RightPanelOutfitSectionToggleButton,
+        ))
+        .with_children(|row| {
+            row.spawn((Text::new("v"), RightPanelOutfitSectionToggleText));
+            row.spawn((Text::new(title),));
+        });
+}
+
+pub(super) fn spawn_outfit_text_field(
+    parent: &mut ChildSpawnerCommands,
+    label: &str,
+    field: OutfitFieldKind,
+) {
+    parent
+        .spawn(Node {
+            width: percent(100),
+            justify_content: JustifyContent::SpaceBetween,
+            align_items: AlignItems::Center,
+            column_gap: px(8),
+            ..default()
+        })
+        .with_children(|row| {
+            row.spawn((
+                Text::new(format!("{label}:")),
+                Node {
+                    min_width: px(110),
+                    ..default()
+                },
+            ));
+            row.spawn((
+                Button,
+                Node {
+                    width: px(146),
+                    padding: UiRect::axes(px(8), px(5)),
+                    border: UiRect::all(px(1)),
+                    justify_content: JustifyContent::FlexStart,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.10, 0.10, 0.13)),
+                BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.22)),
+                OutfitFieldButton { field },
+            ))
+            .with_children(|field_node| {
+                field_node.spawn((Text::new(""), OutfitFieldText { field }));
+            });
+        });
+}
+
+pub(super) fn spawn_outfit_filter_text_field(parent: &mut ChildSpawnerCommands, label: &str) {
+    parent
+        .spawn(Node {
+            width: percent(100),
+            justify_content: JustifyContent::SpaceBetween,
+            align_items: AlignItems::Center,
+            column_gap: px(8),
+            ..default()
+        })
+        .with_children(|row| {
+            row.spawn((
+                Text::new(format!("{label}:")),
+                Node {
+                    min_width: px(110),
+                    ..default()
+                },
+            ));
+            row.spawn((
+                Button,
+                Node {
+                    width: px(146),
+                    padding: UiRect::axes(px(8), px(5)),
+                    border: UiRect::all(px(1)),
+                    justify_content: JustifyContent::FlexStart,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.10, 0.10, 0.13)),
+                BorderColor::all(Color::srgba(1.0, 1.0, 1.0, 0.22)),
+                OutfitFilterFieldButton,
+            ))
+            .with_children(|field_node| {
+                field_node.spawn((Text::new(""), OutfitFilterFieldText));
+            });
         });
 }
 
