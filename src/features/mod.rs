@@ -1,1 +1,18 @@
-// Step 1 scaffold module: feature registration.
+pub mod animation;
+pub mod grid;
+pub mod image;
+pub mod layers;
+
+use bevy::prelude::*;
+
+pub struct EditorFeaturesPlugin;
+
+impl Plugin for EditorFeaturesPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins((
+            image::ImageFeaturePlugin,
+            animation::AnimationFeaturePlugin,
+            layers::LayersFeaturePlugin,
+        ));
+    }
+}

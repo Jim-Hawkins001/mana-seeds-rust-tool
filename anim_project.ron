@@ -1,0 +1,1235 @@
+(
+    version: 1,
+    sheet: (
+        image: "images/Mana Seed Sprite System v1.4a/farmer_base_sheets/01body/fbas_01body_human_00.png",
+        grid: (
+            cell_w: 64,
+            cell_h: 64,
+            offset_x: 0,
+            offset_y: 0,
+            spacing_x: 0,
+            spacing_y: 0,
+            columns: 16,
+            rows: 16,
+        ),
+    ),
+    defaults: (
+        frame_ms: 120,
+    ),
+    clips: [
+        (
+            id: "walk",
+            display: "Walk",
+            category: "Locomotion",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "run",
+            display: "Run",
+            category: "Locomotion",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "jump",
+            display: "Jump",
+            category: "Locomotion",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "climb",
+            display: "Climb",
+            category: "Locomotion",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "mount_up",
+            display: "Mount Up",
+            category: "Locomotion",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "ride_mount",
+            display: "Ride Mount",
+            category: "Locomotion",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "ride_mount_drunk",
+            display: "Ride Mount Drunk",
+            category: "Locomotion",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "pickup",
+            display: "Pickup",
+            category: "Carry",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "carry",
+            display: "Carry",
+            category: "Carry",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "walk_carry",
+            display: "Walk Carry",
+            category: "Carry",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "run_carry",
+            display: "Run Carry",
+            category: "Carry",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "jump_carry",
+            display: "Jump Carry",
+            category: "Carry",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "putdown",
+            display: "Putdown",
+            category: "Carry",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "push",
+            display: "Push",
+            category: "Interaction",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "pull",
+            display: "Pull",
+            category: "Interaction",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "plant_seed",
+            display: "Plant Seed",
+            category: "Interaction",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "water",
+            display: "Water",
+            category: "Interaction",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "work_station",
+            display: "Work Station",
+            category: "Interaction",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "sing",
+            display: "Sing",
+            category: "Performance / Social",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "play_guitar",
+            display: "Play Guitar",
+            category: "Performance / Social",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "play_flute",
+            display: "Play Flute",
+            category: "Performance / Social",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "play_drums",
+            display: "Play Drums",
+            category: "Performance / Social",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "wave",
+            display: "Wave",
+            category: "Performance / Social",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "hug",
+            display: "Hug",
+            category: "Performance / Social",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "thumbs_up",
+            display: "Thumbs Up",
+            category: "Performance / Social",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "sniff",
+            display: "Sniff",
+            category: "Performance / Social",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "sad",
+            display: "Sad",
+            category: "Performance / Social",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "shocked",
+            display: "Shocked",
+            category: "Performance / Social",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "laugh",
+            display: "Laugh",
+            category: "Performance / Social",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "impatient",
+            display: "Impatient",
+            category: "Performance / Social",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "mad_stomp",
+            display: "Mad Stomp",
+            category: "Performance / Social",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "fish_cast",
+            display: "Fish: Cast",
+            category: "Fishing",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "fish_wait_bite",
+            display: "Fish: Wait Bite",
+            category: "Fishing",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "fish_catch",
+            display: "Fish: Catch",
+            category: "Fishing",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "strike_overhand",
+            display: "Strike Overhand",
+            category: "Combat",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "strike_forehand",
+            display: "Strike Forehand",
+            category: "Combat",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "strike_backhand",
+            display: "Strike Backhand",
+            category: "Combat",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "bow_shot",
+            display: "Bow Shot",
+            category: "Combat",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "hurt",
+            display: "Hurt",
+            category: "Combat",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "evade",
+            display: "Evade",
+            category: "Combat",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "pet_dog",
+            display: "Pet Dog",
+            category: "Animals",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "milk_cow",
+            display: "Milk Cow",
+            category: "Animals",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "pet_horse",
+            display: "Pet Horse",
+            category: "Animals",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "idle",
+            display: "Idle",
+            category: "Poses",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "sit_floor",
+            display: "Sit Floor",
+            category: "Poses",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [
+                        (
+                            cell: 16,
+                            ms: 120,
+                            flip_x: false,
+                        ),
+                    ],
+                ),
+                Down: (
+                    steps: [
+                        (
+                            cell: 0,
+                            ms: 120,
+                            flip_x: false,
+                        ),
+                    ],
+                ),
+                Right: (
+                    steps: [
+                        (
+                            cell: 32,
+                            ms: 120,
+                            flip_x: false,
+                        ),
+                    ],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "sit_ledge",
+            display: "Sit Ledge",
+            category: "Poses",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "sit_chair",
+            display: "Sit Chair",
+            category: "Poses",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "meditate",
+            display: "Meditate",
+            category: "Poses",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "sleep",
+            display: "Sleep",
+            category: "Poses",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "sleep_sit_chair",
+            display: "Sleep Sit Chair",
+            category: "Poses",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "drink_stand",
+            display: "Drink Stand",
+            category: "Drinking",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+        (
+            id: "drink_sit",
+            display: "Drink Sit",
+            category: "Drinking",
+            playback: Loop,
+            tracks: {
+                Up: (
+                    steps: [],
+                ),
+                Down: (
+                    steps: [],
+                ),
+                Right: (
+                    steps: [],
+                ),
+            },
+            derives: [
+                MirrorX(
+                    from: Right,
+                    to: Left,
+                ),
+            ],
+        ),
+    ],
+)

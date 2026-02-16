@@ -1,1 +1,2 @@
-// Step 1 scaffold module: reusable UI widgets.
+pub mod scroll_region;
+pub mod splitters;

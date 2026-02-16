@@ -1,1 +1,3 @@
-// Step 1 scaffold module: image feature namespace.
+pub mod loader;
+
+pub use loader::ImageFeaturePlugin;
