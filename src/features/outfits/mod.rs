@@ -141,16 +141,19 @@ fn default_outfits_path() -> PathBuf {
 
 fn project_root_path(file_name: &str) -> PathBuf {
     if let Ok(cwd) = std::env::current_dir() {
-        let direct = cwd.join(file_name);
-        if direct.parent().is_some_and(Path::exists) {
-            return direct;
+        if looks_like_project_root(&cwd) {
+            return cwd.join(file_name);
         }
-        let nested = cwd.join("asset_hander").join(file_name);
-        if nested.parent().is_some_and(Path::exists) {
-            return nested;
+        let nested = cwd.join("asset_hander");
+        if looks_like_project_root(&nested) {
+            return nested.join(file_name);
         }
     }
     PathBuf::from(file_name)
+}
+
+fn looks_like_project_root(path: &Path) -> bool {
+    path.join("Cargo.toml").is_file() && path.join("assets").is_dir()
 }
 
 pub struct OutfitsFeaturePlugin;

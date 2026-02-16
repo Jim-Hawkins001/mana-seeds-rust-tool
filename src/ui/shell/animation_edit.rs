@@ -2154,33 +2154,43 @@ fn apply_outfit_to_preview(
     palette_panel: &mut PalettePanelState,
     layer_palettes: &mut LayerPaletteState,
 ) {
+    let palette_count = paper_doll.palette_catalog.palettes.len();
     let main = parse_ramp_choice(&outfit.palette.outfit_main)
-        .unwrap_or_else(|| global_palette_choice(palette_panel));
-    palette_panel.selected = Some(main.palette_index);
-    palette_panel.variant = main.variant;
+        .or_else(|| Some(global_palette_choice(palette_panel)))
+        .and_then(|selection| clamp_palette_selection(selection, palette_count));
 
     layer_palettes.by_layer.clear();
-    if let Some(skin) = parse_ramp_choice(&outfit.palette.skin) {
-        if skin != main {
+    if let Some(main) = main {
+        palette_panel.selected = Some(main.palette_index);
+        palette_panel.variant = main.variant;
+
+        if let Some(skin) = parse_ramp_choice(&outfit.palette.skin)
+            .and_then(|selection| clamp_palette_selection(selection, palette_count))
+            && skin != main
+        {
             layer_palettes.by_layer.insert(LayerCode::Body01, skin);
         }
-    }
-    if let Some(hair) = parse_ramp_choice(&outfit.palette.hair) {
-        if hair != main {
+        if let Some(hair) = parse_ramp_choice(&outfit.palette.hair)
+            .and_then(|selection| clamp_palette_selection(selection, palette_count))
+            && hair != main
+        {
             layer_palettes.by_layer.insert(LayerCode::Hair13, hair);
         }
-    }
-    if let Some(accent_choice) = outfit
-        .palette
-        .outfit_accent
-        .as_ref()
-        .and_then(parse_ramp_choice)
-    {
-        if accent_choice != main {
+        if let Some(accent_choice) = outfit
+            .palette
+            .outfit_accent
+            .as_ref()
+            .and_then(parse_ramp_choice)
+            .and_then(|selection| clamp_palette_selection(selection, palette_count))
+            && accent_choice != main
+        {
             layer_palettes
                 .by_layer
                 .insert(LayerCode::Outr10, accent_choice);
         }
+    } else {
+        palette_panel.selected = None;
+        palette_panel.variant = 0;
     }
 
     let keys: Vec<String> = outfit
@@ -2288,6 +2298,19 @@ fn parse_ramp_choice(choice: &RampChoice) -> Option<LayerPaletteSelection> {
         RampChoice::Preset(raw) => parse_ramp_preset(raw),
         RampChoice::Custom(_) => None,
     }
+}
+
+fn clamp_palette_selection(
+    selection: LayerPaletteSelection,
+    palette_count: usize,
+) -> Option<LayerPaletteSelection> {
+    if palette_count == 0 {
+        return None;
+    }
+    Some(LayerPaletteSelection {
+        palette_index: selection.palette_index.min(palette_count.saturating_sub(1)),
+        variant: selection.variant,
+    })
 }
 
 fn parse_ramp_preset(raw: &str) -> Option<LayerPaletteSelection> {
