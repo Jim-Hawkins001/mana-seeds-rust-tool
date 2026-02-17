@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use eframe::egui::{
-    self, Color32, ColorImage, Context, FontFamily, FontId, Pos2, SidePanel, Stroke, TextureHandle,
-    TextureOptions, TopBottomPanel, Vec2, Visuals,
+    self, Color32, ColorImage, Context, FontFamily, FontId, Pos2, Rect, SidePanel, Stroke,
+    TextureHandle, TextureOptions, TopBottomPanel, Vec2, Visuals,
 };
 
 fn main() -> eframe::Result<()> {
@@ -37,14 +37,30 @@ impl Default for GridConfig {
     }
 }
 
-#[derive(Default)]
 struct AssetHanderApp {
     image_name: Option<String>,
     image_size: Option<[usize; 2]>,
     image_texture: Option<TextureHandle>,
     draft_grid: GridConfig,
     applied_grid: GridConfig,
+    zoom_level: f32,
+    canvas_pan: Vec2,
     theme_applied: bool,
+}
+
+impl Default for AssetHanderApp {
+    fn default() -> Self {
+        Self {
+            image_name: None,
+            image_size: None,
+            image_texture: None,
+            draft_grid: GridConfig::default(),
+            applied_grid: GridConfig::default(),
+            zoom_level: 1.0,
+            canvas_pan: Vec2::ZERO,
+            theme_applied: false,
+        }
+    }
 }
 
 impl eframe::App for AssetHanderApp {
@@ -126,25 +142,66 @@ impl eframe::App for AssetHanderApp {
                 if ui.button("Apply / Regenerate Grid").clicked() {
                     self.applied_grid = self.draft_grid;
                 }
+
+                ui.add_space(8.0);
+                ui.heading("Canvas View");
+                ui.separator();
+                ui.horizontal(|ui| {
+                    if ui.button("-").clicked() {
+                        self.zoom_level = (self.zoom_level * 0.9).clamp(0.1, 16.0);
+                    }
+                    if ui.button("+").clicked() {
+                        self.zoom_level = (self.zoom_level * 1.1).clamp(0.1, 16.0);
+                    }
+                    if ui.button("Reset View").clicked() {
+                        self.zoom_level = 1.0;
+                        self.canvas_pan = Vec2::ZERO;
+                    }
+                });
+                ui.label(format!("Zoom: {:.0}%", self.zoom_level * 100.0));
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            egui::ScrollArea::both().show(ui, |ui| {
-                ui.heading("Canvas");
-                ui.separator();
-                if let Some(texture) = &self.image_texture {
-                    let image_size = texture.size_vec2();
-                    let response = ui.add(
-                        egui::Image::from_texture(texture)
-                            .fit_to_exact_size(image_size)
-                            .sense(egui::Sense::hover()),
-                    );
-                    let painter = ui.painter_at(response.rect);
-                    draw_grid_overlay(&painter, response.rect.min, image_size, self.applied_grid);
-                } else {
-                    ui.label("Open an image from File -> Open Image.");
+            ui.heading("Canvas");
+            ui.separator();
+
+            let canvas_size = ui.available_size();
+            let (response, painter) = ui.allocate_painter(canvas_size, egui::Sense::drag());
+
+            if response.dragged() {
+                let drag_delta = ui.ctx().input(|input| input.pointer.delta());
+                self.canvas_pan += drag_delta;
+            }
+
+            if response.hovered() {
+                let scroll_delta = ui.ctx().input(|input| input.smooth_scroll_delta.y);
+                if scroll_delta.abs() > f32::EPSILON {
+                    let zoom_factor = (1.0 + (scroll_delta * 0.001)).clamp(0.5, 1.5);
+                    self.zoom_level = (self.zoom_level * zoom_factor).clamp(0.1, 16.0);
                 }
-            });
+            }
+
+            if let Some(texture) = &self.image_texture {
+                let image_size = texture.size_vec2() * self.zoom_level;
+                let top_left = response.rect.center() - (image_size * 0.5) + self.canvas_pan;
+                let image_rect = Rect::from_min_size(top_left, image_size);
+
+                painter.image(
+                    texture.id(),
+                    image_rect,
+                    Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0)),
+                    Color32::WHITE,
+                );
+                draw_grid_overlay(&painter, image_rect.min, image_size, self.applied_grid);
+            } else {
+                painter.text(
+                    response.rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    "Open an image from File -> Open Image.",
+                    FontId::new(16.0, FontFamily::Proportional),
+                    Color32::LIGHT_GRAY,
+                );
+            }
         });
     }
 }
